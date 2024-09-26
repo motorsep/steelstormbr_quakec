@@ -1,0 +1,92 @@
+/*
+===========================================================================
+
+Steel Storm Burning Retribution QuakeC Source Code
+Copyright (C) 2008-2024 Kot-in-Action Creative Artel.
+
+This file is part of the Steel Storm Burning Retribution QuakeC Source Code.
+
+License:
+  - You may use, modify, and distribute modifications of this source code under the terms of the Steel Storm Burning Retribution QuakeC Source Code License Agreement.
+  - No commercial use of this source code or any derivative works is permitted.
+  - All mods and modifications must be distributed for free and include this license header.
+ 
+The full text of the license is included in the license.txt file that came with this source code.
+
+If you have questions concerning this license, you may contact info (at) kot-in-action.com
+
+===========================================================================
+*/
+../csprogs.dat
+
+client/cl_defs.qc
+shared_server_client/sh_sv_cl_defs.qc
+
+client/cl_constants.qc
+client/cl_builtins.qc
+
+shared_all/dpextensions.qc
+
+shared_all/sh_all_defs.qc
+shared_client_menu/sh_cl_m_defs.qc
+
+shared_all/sh_all_localize_defs.qc
+client/cl_localize_defs.qc
+client/cl_gamedefs.qc
+
+shared_server_client/sh_sv_cl_precaches.qc
+
+shared_all/sh_all_subs.qc
+client/cl_subs.qc
+shared_server_client/sh_sv_cl_subs.qc
+
+client/cl_init.qc
+//client/cl_ai.qc
+
+shared_all/sh_all_localize.qc
+shared_client_menu/sh_cl_m_localize.qc
+client/cl_localize.qc
+
+shared_client_menu/sh_cl_m_video.qc
+shared_client_menu/sh_cl_m_sound.qc
+shared_client_menu/sh_cl_m_input.qc
+shared_client_menu/sh_cl_m_menudefaults.qc
+shared_client_menu/sh_cl_m_draw.qc
+shared_client_menu/sh_cl_m_tools.qc
+
+shared_client_menu/sh_cl_m_mission.qc
+
+shared_all/sh_all_gamemodes.qc
+shared_server_client/sh_sv_cl_gamemodes.qc
+
+client/cl_player_effects.qc
+
+shared_server_client/sh_sv_cl_objects.qc
+shared_server_client/sh_sv_cl_animations_player.qc
+shared_server_client/sh_sv_cl_mission.qc
+shared_server_client/sh_sv_cl_combat.qc
+
+client/cl_chains.qc
+client/cl_effects.qc
+client/cl_animations.qc
+client/cl_input.qc
+client/cl_radar.qc
+client/cl_weapons.qc
+client/cl_mission.qc
+client/cl_scoreboard.qc
+
+shared_server_client/sh_sv_cl_entities.qc
+
+client/cl_entities.qc
+client/cl_main.qc
+client/cl_addtomenudrawfuncs.qc
+client/cl_admin.qc
+client/cl_admin_entities.qc
+client/cl_mission_editor_music.qc
+client/cl_mission_editor_effects.qc
+client/cl_mission_editor_pathing.qc
+client/cl_mission_editor_menus.qc
+client/cl_hud.qc
+client/cl_view.qc
+
+client/cl_localize_generate.qc

@@ -1,0 +1,38 @@
+QuakeC Game Source Code License Agreement
+----------------------------------
+
+Steel Storm Burning Retribution (the "Game") QuakeC Source Code License Agreement (the "Agreement") is a legal agreement between you (the "User") and Kot in Action Creative Artel (the "Licensor"). 
+By downloading, using, or modifying the QuakeC source code (the "QC Source Code"), you agree to be bound by the terms of this Agreement.
+
+1. **Grant of License**
+   The Licensor grants the User a non-exclusive, non-transferable, non-commercial, and revocable license to use, modify, and distribute modifications of the QC Source Code under the following conditions:
+   
+   - **Learning and Educational Use**: The User may use the QC Source Code to learn how the Game was made.
+   
+   - **Modding and Non-Commercial Use**: The User may modify the QC Source Code to create modifications (the "Mods") for the Game. The User may share and distribute these Mods with others, provided that the Mods are distributed free of charge.
+   
+   - **Attribution**: Any distribution of Mods must include proper attribution to the Licensor and to RazorWind Games (for the Lights Editor tool), and this Agreement.
+
+2. **Prohibited Uses**
+   The User is expressly prohibited from:
+   
+   - Using the QC Source Code or Mods for any commercial purpose, including but not limited to selling, licensing, or distributing Mods for a fee or any other form of compensation.
+   
+   - Incorporating the QC Source Code into any product or service that is sold or offered for commercial gain.
+   
+   - Reverse-engineering or redistributing the QC Source Code in any form other than as permitted by this Agreement.
+   
+3. **No Warranty**
+   The QC Source Code is provided "as is," without warranty of any kind. The Licensor makes no warranties, whether express, implied, or statutory, regarding the QC Source Code, including but not limited to the warranties of merchantability or fitness for a particular purpose.
+
+4. **Termination**
+   The Licensor reserves the right to terminate this license at any time if the User fails to comply with any of the terms of this Agreement. Upon termination, the User must cease all use and distribution of the QC Source Code and any Mods.
+
+5. **Governing Law**
+   This Agreement is governed by the laws of the State of Texas, USA. Any disputes arising out of or in connection with this Agreement will be resolved in the courts of the State of Texas, USA.
+
+By using the QC Source Code, you agree to the terms of this Agreement.
+
+Kot in Action Creative Artel  
+RazorWind Games (for Lights Editor tool)  
+September 25, 2024

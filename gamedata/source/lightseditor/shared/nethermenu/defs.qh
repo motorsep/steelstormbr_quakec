@@ -1,0 +1,284 @@
+////////////////////////////////////////
+// Nether Menu System source codes
+// Property of RazorWind Games
+// code written by Pavel P. [VorteX] Timofeyev
+//					    email:paul.vortex@gmail.com
+// This code is free for non-commercial use, 
+// though don't forget to credit me :) 
+////////////////////////////////////////
+
+////////////////////////////////////////
+// HEADERS
+////////////////////////////////////////
+
+// utf8-related stuff
+#define Menu_Utf8Cvar "utf8_enable"
+#define Menu_UtfDisable float utf8; utf8 = cvar(Menu_Utf8Cvar); if (utf8) { cvar_set(Menu_Utf8Cvar, ftos(0)); }
+#define Menu_UtfRestore if (utf8) cvar_set(Menu_Utf8Cvar, ftos(utf8));
+
+// prototypes
+#define Menu_KeyEvent float(float tEvent, float tKeyCode, float tKeySealed)
+#define Menu_NodeProcess void(entity tObject)
+Menu_KeyEvent null_keyevent = { return 0; } 
+
+// common fields
+.string name; 			// name of object
+.string localname; 	// local name withoud address
+.entity focus; 			// object current object is focused to
+.void() mInit;			// shared
+.void() mDestroy;		// shared
+.void() mDraw;			// shared
+.void() mPostDraw;		// object only, called after children got drawed
+.Menu_KeyEvent mKey;	// shared
+.void() mPreUpdate;	// object, before system update event
+.void() mPostUpdate;	// object, after system update event
+.void() mFrame;			// proc, called each frame
+.float() mEvent;		// event, get called
+.float mType; // type of method
+
+// menu globals
+entity menu_proc; 		// current menu process
+entity menu_proclist;
+entity foundproc;
+entity foundclass;
+entity foundobject;
+entity foundmethod;
+float menutime;
+float menuframetime;
+
+// objects structure
+.entity _proc;			// processor this entity belongs to
+.entity _child;			// child list
+.entity _classes;		// classes list of proc
+.entity _methods;		// methods list of proc
+.entity _parent;		// parent of this object
+.entity _next;			// next 'brother'
+.entity _prev;			// prev 'brother'
+.entity _template;		// a template of self (derive methods from...)
+.float _uidcounter;		// used on process
+
+// proc screenres adaptation mode 
+.float() mEvent;
+.float autoEvent; // used to save results on proc
+float() Menu_Proc_ScreenResAdaptation_Stretch;			// no adaptation
+float() Menu_Proc_ScreenResAdaptation_Con;				// conwidth/conheight
+float() Menu_Proc_ScreenResAdaptation_PixelHeight;		// vid_pixelheight
+float() Menu_Proc_ScreenResAdaptation_ConPixelHeight;	// conwidth/conheight + vid_pixelheight
+float() Menu_Proc_ScreenResAdaptation_Fix;				// realwidth/realheight
+
+// proc flags
+enumflags
+{
+	MENU_PROCFLAG_HIDDEN,
+	MENU_PROCFLAG_SEALKEYS,
+	MENU_PROCFLAG_USEMOUSE,
+	_
+};
+
+// object flags
+.float mFlags;
+enumflags
+{
+	MENU_FLAG_NEW,				// just spawned, run link function
+	MENU_FLAG_TEMPORARY,		// destroy this object next frame
+	MENU_FLAG_EMBEDDED,			// item and all it's children will act as part of it's parent
+	MENU_FLAG_EMBEDDEDHOTKEY,	// makes parent check for this item hotkeys, do not include children like MENU_FLAG_EMBEDDED do, obsoleted by MENU_FLAG_EMBEDDED!
+	MENU_FLAG_HIDDEN,			// generally not processable
+	MENU_FLAG_NODRAW,			// don't get draw event
+	MENU_FLAG_NOCHILDREN,		// dont' process children
+	MENU_FLAG_ALIGNED,			// use self.align instead of self._parent.alignment
+	MENU_FLAG_NOARRANGE,		// parent.arrangement will not work for this item
+	MENU_FLAG_SELECTABLE,		// can be selected
+	MENU_FLAG_CONTAINER,		// object is a container of other objects, this hacks selection chain if used with "selectable 1"
+	MENU_FLAG_NOWARNINGS,		// disable warnings on this object
+	MENU_FLAG_BLOCKMOUSE,		// like selectable but doesn't do select event, so bloclking mouse trace
+	MENU_FLAG_MULTILINE,		// text flag
+	_
+};
+
+// runflags
+.float mRunFlags;
+enumflags
+{
+	MENU_RUNFLAG_TEMPLATE, 				// 1
+	MENU_RUNFLAG_HIDDEN, 				// 2
+	MENU_RUNFLAG_MOUSEOVER,				// 4 mouse is over object
+	MENU_RUNFLAG_HASEMBEDDED,			// 8 has embedded stuff - do special pass for it
+	MENU_RUNFLAG_HASEMBEDDEDHOTKEYS,	// 16 has embedded hotkey stuff - do special pass for it
+	MENU_RUNFLAG_ARRANGEMENT,			// 32 set on entity that does arrangement
+	MENU_RUNFLAG_UPDATEPOS,				// 64
+	MENU_RUNFLAG_UPDATEOBJECT, 			// 128
+	MENU_RUNFLAG_INTERPOLATING, 		// 512
+	MENU_RUNFLAG_UNUSED2, 				// 256
+	MENU_RUNFLAG_CUSTOM1, 				// 1024
+	MENU_RUNFLAG_CUSTOM2, 				// 2048
+	MENU_RUNFLAG_CUSTOM3, 				// 4096
+	_
+};
+
+// returns true if entity can be selected
+#define Menu_IsSelectable(e) ((e.mFlags & MENU_FLAG_SELECTABLE) && !(e.mFlags & (MENU_FLAG_HIDDEN + MENU_FLAG_NODRAW)) && !(e.mRunFlags & (MENU_RUNFLAG_TEMPLATE + MENU_RUNFLAG_HIDDEN)))
+#define Menu_IsArrangeable(e) (!(e.mFlags & (MENU_FLAG_HIDDEN + MENU_FLAG_NODRAW + MENU_FLAG_NOARRANGE)) && !(e.mRunFlags & MENU_RUNFLAG_TEMPLATE))
+#define Menu_HasMouse(e) (e.mRunFlags & MENU_RUNFLAG_MOUSEOVER)
+float Menu_IsChildOf(entity e, entity p) = { while(isentity(e)) { if (e._parent == p) return 1; } return 0; }
+
+// state update flags
+#define MSU_NORMAL			0
+#define MSU_SILENT 			1	// do not process MMF_ACTION methods
+#define MSU_EVENT			4	// event state, do not change object sign
+#define MSU_FORCEUPDATE		8	// disable quitting if current state == requested state, so statemap run can be done twice and more
+
+// method arithmetic
+enum
+{
+	MMA_SET,
+	MMA_ADD,
+	MMA_SUB,
+	MMA_MUL,
+	MMA_DIV
+};
+float Menu_Sys_MethodOpForString(string tOpStr);
+string Menu_Sys_MethodStringForOp(float tOp);
+
+// method types
+enum
+{
+	MMT_NULL,		// not stored
+	MMT_BOOL,		// 0/1
+	MMT_FLAG,		// method that sets flag, similar to bool
+	MMT_STRING,		// string value
+	MMT_SCRIPT,		// menuscript pointer
+	
+	// this methods types support standart arithmetic (+,-,*,/)
+	MMT_FLOAT,		// float
+	MMT_INTEGER,	// integer
+	MMT_VECTOR,		// 2d/3d vector
+	MMT_COLOR,		// color vector (todo: HSB arithmatic)
+	_
+};
+
+// object sub-states
+.string state;
+.string substate;
+
+// global key buffer
+// so we shoult know any current key states
+float menu_keybuffer; 	// stores vectors, x == 1 if key is pressed, y is start press time (ignoring multiple HOLD presses :)), z is last release time
+float menu_keynamesbuffer; // stores key names
+float menu_keynamesbuffer_n; // stores key numbers
+float menu_keynamesbuffer_size;
+
+// virtual key events controls react to
+// they should be casted by menu proc (allowing custom binding for menu)
+#define VK_MOUSE	10001
+#define VK_CANCEL	10002
+#define VK_CLEAR	10003
+#define VK_USE		10004
+#define VK_NEXT		10005
+#define VK_PREV		10006
+#define VK_INC		10007
+#define VK_DEC		10008
+
+// keyEvent return codes
+#define KR_FALSE				0 	// key not processed
+#define KR_TRUE					1 	// key is processed
+#define KR_SEAL_PARENTS			2 	// don't call keys on parents
+#define KR_SEAL_PROC			4 	// don't call keys on next menu proc's
+#define KR_SEAL_ENGINE			8 	// tell engine to stop call key for other events (console typing, player input etc)
+#define KR_SEAL_ALL				14  // seal anything
+
+// class global function 
+string className;
+var void() classSpawn;
+var void() classInit;
+var void() classShutdown;
+
+// align/alignment/orient constants
+#define MENU_ALIGN_TOPLEFT 		'0 0 0'
+#define MENU_ALIGN_TOPCENTER 	'1 0 0'
+#define MENU_ALIGN_TOPRIGHT 	'2 0 0'
+#define MENU_ALIGN_MIDLEFT 		'0 1 0'
+#define MENU_ALIGN_MIDCENTER 	'1 1 0'
+#define MENU_ALIGN_MIDRIGHT 	'2 1 0'
+#define MENU_ALIGN_BOTLEFT 		'0 2 0'
+#define MENU_ALIGN_BOTCENTER 	'1 2 0'
+#define MENU_ALIGN_BOTRIGHT 	'2 2 0'
+
+// arrangement constants
+#define MENU_ARRANGE_NO				0
+#define MENU_ARRANGE_VERTICAL		1
+#define MENU_ARRANGE_HORIZONTAL		2
+
+// cacheable cvars
+float menu_vid_conwidth;
+float menu_vid_conheight;
+float menu_vid_width;
+float menu_vid_height;
+
+// MenuScript routines
+#define procScriptProg onTrigger
+.float onTrigger; // stores menuScript instance
+float MenuScript_Compile(string s);
+string MenuScript_Run(entity e, float s);
+void MenuScript_CreateProg(entity menuproc, string pname);
+void MenuScript_DeleteProg(float prog);
+#define MenuScript_SetVar(s,v) NetherCode_SetVar(s, v)
+#define MenuScript_SetParms(p1,p2,p3,p4,p5,p6,p7,p8) NetherCode_SetParms(p1,p2,p3,p4,p5,p6,p7,p8)
+#define MenuScript_SetParms_FromTokenbuffer(start,numparms) NetherCode_SetParms_FromTokenbuffer(start, numparms)
+#define MenuScript_SetGlobal(globalname,value) NetherCode_SetGlobal(menu_proc.procScriptProg, globalname, value)
+#define MenuScript_GetVar(s) NetherCode_GetVar(s)
+#define MenuScript_FindFunction(s) NetherCode_FindFunction(menu_proc.procScriptProg, s)
+#define MenuScript_CreateFunction(sn,sb,sp) NetherCode_AddFunction(menu_proc.procScriptProg, sn, sb, sp)
+#define MenuScript_RunEvent(eventname) NetherCode_RunEvent(menu_proc.procScriptProg, eventname)
+#define MenuScript_RunCommand(cmdname,cmdparms) NetherCode_RunCommand(menu_proc.procScriptProg, cmdname, cmdparms)
+#define MenuScript_CompileWarnings() NetherCode_CompileWarnings()
+
+//. Linking utils
+entity tliste, tlaste;
+#define Menu_Util_LinkInto(ent,par,par_head,par_f) ent.par_f=par;if(isnotentity(par_head)){par_head=ent;ent._next=null_entity;ent._prev=null_entity;}else{for(tliste=par_head;tliste;tliste=tliste._next)tlaste=tliste;tlaste._next=ent;ent._prev=tlaste;ent._next=null_entity;}
+/*
+	entity tliste, tlaste; 
+	ent.par_f = par;
+	if (isnotentity(par_head))
+	{ 
+		par_head = ent; 
+		ent._next = null_entity; 
+		ent._prev = null_entity; 
+	} 
+	else
+	{
+		for (tliste = par_head; tliste; tliste = tliste._next) 
+			tlaste = tliste; 
+		tlaste._next = ent; 
+		ent._prev = tlaste; 
+		ent._next = null_entity;
+	}
+*/
+
+#define Menu_Util_UnlinkFrom(ent,parent,parent_head,parent_field) if (ent._prev) ent._prev._next = ent._next; if (ent._next) ent._next._prev = ent._prev; if (parent_head == ent) parent_head = ent._next; ent.parent_field = null_entity;
+/*
+	if (ent._prev)
+		ent._prev._next = ent._next;
+	if (ent._next)
+		ent._next._prev = ent._prev;
+	if (parent_head == ent)
+		parent_head = ent._next;
+	ent.parent_field = null_entity;
+*/
+
+// c_data.qc
+// each datastream have cache of controls pointed at it
+// 8 dynamic controls (hooked by user) and 4 static (hooked by system)
+.entity _datasource; // set on controls that uses data mechanics
+.entity _datauser1;
+.entity _datauser2;
+.entity _datauser3;
+.entity _datauser4;
+.entity _datauser5;
+.entity _datauser6;
+.entity _datauser7;
+.entity _datauser8;
+.entity _datauserstatic1;
+.entity _datauserstatic2;
+.entity _datauserstatic3;
+.entity _datauserstatic4;

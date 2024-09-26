@@ -1,0 +1,876 @@
+/*
+==============================================================================
+
+			SOURCE FOR GLOBALVARS_T C STRUCTURE
+
+==============================================================================
+*/
+
+//
+// system globals
+//
+entity		self;
+entity		other;
+entity		world;
+float		time;
+float		frametime;
+
+float 		player_localentnum;	//the entnum
+float 		player_localnum;	//the playernum
+float		maxclients;	//a constant filled in by the engine. gah, portability eh?
+
+float		clientcommandframe;	//player movement
+float		servercommandframe;	//clientframe echoed off the server
+
+string		mapname;
+
+//
+// global variables set by built in functions
+//
+vector		v_forward, v_up, v_right;	// set by makevectors()
+
+// set by traceline / tracebox
+float		trace_allsolid;
+float		trace_startsolid;
+float		trace_fraction;
+vector		trace_endpos;
+vector		trace_plane_normal;
+float		trace_plane_dist;
+entity		trace_ent;
+float		trace_inopen;
+float		trace_inwater;
+
+//
+// required prog functions
+//
+void()		CSQC_Init;
+void()		CSQC_Shutdown;
+float(float f, float t)	CSQC_InputEvent;
+void()		CSQC_UpdateView;
+float(string s)	CSQC_ConsoleCommand;
+
+// these fields are read and set by the default player physics
+vector		pmove_org;
+vector		pmove_vel;
+vector		pmove_mins;
+vector		pmove_maxs;
+// retrieved from the current movement commands (read by player physics)
+float		input_timelength;
+vector		input_angles;
+vector		input_movevalues;	// forwards, right, up.
+float		input_buttons;		// attack, use, jump (default physics only uses jump)
+
+float		movevar_gravity;
+float		movevar_stopspeed;
+float		movevar_maxspeed;
+float		movevar_spectatormaxspeed;	//used by NOCLIP movetypes.
+float		movevar_accelerate;
+float		movevar_airaccelerate;
+float		movevar_wateraccelerate;
+float		movevar_friction;
+float		movevar_waterfriction;
+float		movevar_entgravity;	//the local player's gravity field. Is a multiple (1 is the normal value
+void		end_sys_globals;		// flag for structure dumping
+
+/*
+==============================================================================
+
+			SOURCE FOR ENTVARS_T C STRUCTURE
+
+==============================================================================
+*/
+
+//
+// system fields (*** = do not set in prog code, maintained by C code)
+//
+
+.float		modelindex;		// *** model index in the precached list
+.vector		absmin, absmax;	// *** origin + mins / maxs
+.float		entnum;			// *** the ent number as on the server
+.float		drawmask;
+.void()		predraw;
+.float		movetype;
+.float		solid;
+.vector		origin;			// ***
+.vector		oldorigin;		// ***
+.vector		velocity;
+.vector		angles;
+.vector		avelocity;
+.string		classname;		// spawn function
+.string		model;
+.float		frame;
+.float		skin;
+.float		effects;
+.vector		mins, maxs;		// bounding box extents reletive to origin
+.vector		size;			// maxs - mins
+.void()		touch;
+.void()		use;
+.void()		think;
+.void()		blocked;		// for doors or plats, called when can't push other
+.float		nextthink;
+.entity		chain;
+.string		netname;
+.entity 	enemy;
+.float		flags;
+.float		colormap;
+.entity		owner;		// who launched a missile
+void		end_sys_fields;	 // flag for structure dumping
+
+.float gravity; // VorteX: full gravity, not a multiplier
+.float spawntime;
+.float renderflags;
+.float alpha;
+.float scale;
+.vector colormod;
+
+/*
+==============================================================================
+
+			CONSTANTS
+
+==============================================================================
+*/
+
+// point content values
+float	CONTENT_EMPTY			= -1;
+float	CONTENT_SOLID			= -2;
+float	CONTENT_WATER			= -3;
+float	CONTENT_SLIME			= -4;
+float	CONTENT_LAVA			= -5;
+float   CONTENT_SKY             = -6;
+
+// edict.solid values
+float	SOLID_NOT				= 0;	// no interaction with other objects
+float	SOLID_TRIGGER			= 1;	// touch on edge, but not blocking
+float	SOLID_BBOX				= 2;	// touch on edge, block
+float	SOLID_SLIDEBOX			= 3;	// touch on edge, but not an onground
+float	SOLID_BSP				= 4;	// bsp clip, touch on edge, block
+
+// edict.movetype values
+float	MOVETYPE_NONE			= 0;	// never moves
+float	MOVETYPE_WALK			= 3;	// players only
+float	MOVETYPE_STEP			= 4;	// discrete, not real time unless fall
+float	MOVETYPE_FLY			= 5;
+float	MOVETYPE_TOSS			= 6;	// gravity
+float	MOVETYPE_PUSH			= 7;	// no clip to world, push and crush
+float	MOVETYPE_NOCLIP			= 8;
+float	MOVETYPE_FLYMISSILE		= 9;	// fly with extra size against monsters
+float	MOVETYPE_BOUNCE			= 10;
+float	MOVETYPE_BOUNCEMISSILE	= 11;
+
+// flags
+#define	FL_FLY					1
+#define	FL_SWIM					2
+#define	FL_CLIENT				8		// set for all client edicts
+#define	FL_INWATER				16
+#define	FL_MONSTER				32
+#define	FL_GODMODE				64		// player cheat
+#define	FL_NOTARGET				128		// player cheat
+#define	FL_ITEM					256		// extra wide size for bonus items
+#define	FL_ONGROUND				512		// standing on something
+#define	FL_PARTIALGROUND		1024	// not all corners are valid
+#define	FL_WATERJUMP_ENGINE		2048	// player jumping out of water
+#define	FL_JUMP_RELEASED		4096	// for jump debouncing
+#define FL_NULLORIGIN			8192 	// set for bmodels, so their origin is calculated via (self.absmin + self.absmax)*0.5
+#define FL_ONLADDER				16384 	// set if object is on ladder
+#define FL_LADDERJUMP			32768 	// player jumping out of ladder
+#define FL_WATERJUMP			65536 	// player jumping out of water
+#define	FL_JUMP_BUTTON_RELEASED	131072	
+
+// use with fopen
+#define FILE_READ		0
+#define FILE_APPEND		1
+#define FILE_WRITE		2
+
+// entity rendering mask, use with R_AddEntities
+const float MASK_ENGINE				= 1;
+const float MASK_ENGINEVIEWMODELS	= 2;
+const float MASK_NORMAL				= 4;
+
+// entity.renderflags
+#define RF_VIEWMODEL		1	// The entity is never drawn in mirrors. In engines with realtime lighting, it casts no shadows.
+#define RF_EXTERNALMODEL	2	// The entity is appears in mirrors but not in the normal view. It does still cast shadows in engines with realtime lighting.
+#define RF_DEPTHHACK		4	// The entity appears closer to the view than normal, either by scaling it wierdly or by just using a depthrange. This will usually be found in conjunction with RF_VIEWMODEL
+#define RF_ADDITIVE			8	// Add the entity acording to it's alpha values instead of the normal blend
+#define RF_USEAXIS			16	// When set, the entity will use the v_forward, v_right and v_up globals instead of it's angles field for orientation. Angles will be ignored compleatly.
+
+// entity.effects, entity.modelflags
+// picked up from Darkplaces headers
+#define	EF_BRIGHTFIELD			1
+#define	EF_MUZZLEFLASH 			2
+#define	EF_BRIGHTLIGHT 			4
+#define	EF_DIMLIGHT 			8
+#define	EF_NODRAW				16
+#define EF_ADDITIVE				32
+#define EF_BLUE					64
+#define EF_RED					128
+#define EF_NOGUNBOB				256			// LordHavoc: when used with .viewmodelforclient this makes the entity attach to the view without gun bobbing and such effects, it also works on the player entity to disable gun bobbing of the engine-managed .viewmodel (without affecting any .viewmodelforclient entities attached to the player)
+#define EF_FULLBRIGHT			512			// LordHavoc: fullbright
+#define EF_FLAME				1024		// LordHavoc: on fire
+#define EF_STARDUST				2048		// LordHavoc: showering sparks
+#define EF_NOSHADOW				4096		// LordHavoc: does not cast a shadow
+#define EF_NODEPTHTEST			8192		// LordHavoc: shows through walls
+#define EF_SELECTABLE			16384		// LordHavoc: highlights when PRYDON_CLIENTCURSOR mouse is over it
+#define EF_DOUBLESIDED			32768		//[515]: disable cull face for this entity
+#define EF_UNUSED16				65536
+#define EF_UNUSED17				131072
+#define EF_UNUSED18				262144
+#define EF_UNUSED19				524288
+#define EF_UNUSED20				1048576
+#define EF_UNUSED21				2197152
+#define EF_LOWPRECISION			4194304		// LordHavoc: entity is low precision (integer coordinates) to save network bandwidth  (serverside only)
+#define EF_NOMODELFLAGS			8388608		// indicates the model's .effects should be ignored (allows overriding them)
+// modelflags, shifted by 24 bits
+#define EF_ROCKET				16777216	// leave a trail
+#define EF_GRENADE				33554432	// leave a trail
+#define EF_GIB					67108864	// leave a trail
+#define EF_ROTATE				134217728	// rotate (bonus items)
+#define EF_TRACER				268435456	// green split trail
+#define EF_ZOMGIB				536870912	// small blood trail
+#define EF_TRACER2				1073741824	// orange split trail + rotate
+#define EF_TRACER3				2147483648	// purple trail
+
+const float true = 1;
+const float false = 0;
+
+const float EXTRA_LOW = -99999999;
+const float EXTRA_HIGH = 99999999;
+
+const float M_PI = 3.14159265358979323846;
+const float M_RAD = 57.295791433133264917;
+
+vector	VEC_HULL_MIN = '-16 -16 -24';
+vector	VEC_HULL_MAX = '16 16 32';
+
+// sounds atten
+float	ATTN_NONE			= 0;
+float	ATTN_LESS			= 1;
+float	ATTN_AMBIENT		= 2;
+float	ATTN_NORM			= 2.5;
+float	ATTN_IDLE			= 3;
+float	ATTN_STATIC			= 3.5;
+float	ATTN_SILENT			= 3.8;
+
+/*
+==============================================================================
+
+ KEY CONSTANTS
+
+==============================================================================
+*/
+
+// key events
+#define KEYEVENT_HOLD		0		
+#define KEYEVENT_RELEASE	1
+
+#define K_TAB			9
+#define K_ENTER			13
+#define K_ESCAPE		27
+#define K_SPACE			32
+#define K_BACKSPACE		127
+#define K_UPARROW		128
+#define K_DOWNARROW		129
+#define K_LEFTARROW		130
+#define K_RIGHTARROW	131
+#define K_ALT			132
+#define K_CTRL			133
+#define K_SHIFT			134
+#define K_F1			135
+#define K_F2			136
+#define K_F3			137
+#define K_F4			138
+#define K_F5			139
+#define K_F6			140
+#define K_F7			141
+#define K_F8			142
+#define K_F9			143
+#define K_F10			144
+#define K_F11			145
+#define K_F12			146
+#define K_INS			147
+#define K_DEL			148
+#define K_PGDN			149
+#define K_PGUP			150
+#define K_HOME			151
+#define K_END			152
+#define K_KP_HOME		160
+#define K_KP_UPARROW	161
+#define K_KP_PGUP		162
+#define K_KP_LEFTARROW	163
+#define K_KP_5			164
+#define K_KP_RIGHTARROW	165
+#define K_KP_END		166
+#define K_KP_DOWNARROW	167
+#define K_KP_PGDN		168
+#define K_KP_ENTER		169
+#define K_KP_INS   		170
+#define K_KP_DEL		171
+#define K_KP_SLASH		172
+#define K_KP_MINUS		173
+#define K_KP_PLUS		174
+#define K_PAUSE			255
+float K_JOY1		=	768;
+float K_JOY2		=	769;
+float K_JOY3		=	770;
+float K_JOY4		=	771;
+float K_AUX1		=	772;
+float K_AUX2		=	773;
+float K_AUX3		=	774;
+float K_AUX4		=	775;
+float K_AUX5		=	776;
+float K_AUX6		=	777;
+float K_AUX7		=	778;
+float K_AUX8		=	779;
+float K_AUX9		=	780;
+float K_AUX10		=	781;
+float K_AUX11		=	782;
+float K_AUX12		=	783;
+float K_AUX13		=	784;
+float K_AUX14		=	785;
+float K_AUX15		=	786;
+float K_AUX16		=	787;
+float K_AUX17		=	788;
+float K_AUX18		=	789;
+float K_AUX19		=	790;
+float K_AUX20		=	791;
+float K_AUX21		=	792;
+float K_AUX22		=	793;
+float K_AUX23		=	794;
+float K_AUX24		=	795;
+float K_AUX25		=	796;
+float K_AUX26		=	797;
+float K_AUX27		=	798;
+float K_AUX28		=	799;
+float K_AUX29		=	800;
+float K_AUX30		=	801;
+float K_AUX31		=	802;
+float K_AUX32		=	803;
+
+float K_MOUSE1		=	512;
+float K_MOUSE2		=	513;
+float K_MOUSE3		=	514;
+float K_MOUSE4		=	515;
+float K_MOUSE5		=	516;
+float K_MOUSE6		=	517;
+float K_MOUSE7		=	518;
+float K_MOUSE8		=	519;
+float K_MOUSE9		=	520;
+float K_MOUSE10		=	521;
+float K_MWHEELDOWN	=	K_MOUSE4;
+float K_MWHEELUP	=	K_MOUSE5;
+
+// button bits for input_buttons
+#define B_ATTACK		1
+#define B_JUMP			2
+#define B_BUTTON3		4
+#define B_BUTTON4		8
+#define B_BUTTON5		16
+#define B_BUTTON6		32
+#define B_BUTTON7		64
+#define B_BUTTON8		128
+#define B_USE			256
+#define B_CONSOLE		512
+#define B_PRYDONCURSOR	1024
+#define B_BUTTON9		2048
+#define B_BUTTON10		4096
+#define B_BUTTON11		8192
+#define B_BUTTON12		16384
+#define B_BUTTON13		32768
+#define B_BUTTON14		65536
+#define B_BUTTON15		131072
+#define B_BUTTON16		262144
+#define B_PRYDONCURSOR_LEFTEDGE		BUTTON_BUTTON4
+#define B_PRYDONCURSOR_RIGHTEDGE	BUTTON_BUTTON5
+#define B_PRYDONCURSOR_UPEDGE		BUTTON_BUTTON4
+#define B_PRYDONCURSOR_DOWNEDGE		BUTTON_BUTTON5
+
+/*
+==============================================================================
+
+			BUILT-IN'S
+
+==============================================================================
+*/
+
+// standart builtins
+void(vector ang) makevectors											= #1;
+void(entity e, vector o) setorigin 										= #2;
+void(entity e, string m) setmodel										= #3;
+void(entity e, vector min, vector max) setsize 							= #4;
+void() break															= #6;
+float() random															= #7;
+void(entity e, float chan, string samp, float vol, float atten) sound	= #8;
+vector(vector v) normalize												= #9;
+void(string e) error													= #10;
+void(string e) objerror													= #11;
+float(vector v) vlen													= #12;
+float(vector v) vectoyaw												= #13;
+entity() spawn															= #14;
+void(entity e) remove													= #15;
+void(vector v1, vector v2, float nomonsters, entity forent)	traceline	= #16;
+entity(entity start, .string fld, string match)	find					= #18;
+string(string s) precache_sound											= #19;
+string(string s) precache_model											= #20;
+void(string s, ...) dprint												= #25;
+string(float f) ftos													= #26;
+string(vector v) vtos													= #27;
+void() coredump															= #28;
+void() traceon															= #29;
+void() traceoff															= #30;
+void(entity e) eprint													= #31;
+void(float style, string value) lightstyle								= #35;
+float(float v) rint														= #36;
+float(float v) floor													= #37;
+float(float v) ceil														= #38;
+float(vector v) pointcontents											= #41;
+float(float f) fabs														= #43;
+float(string s) cvar													= #45;
+void(string s, ...) localcmd											= #46;
+entity(entity e) nextent												= #47;
+vector(vector v, ...) vectoangles											= #51;
+string etos (entity ent)												= #65;
+void(string var, string val) cvar_set									= #72;
+
+float()	ReadByte														= #360;
+float()	ReadChar														= #361;
+float()	ReadShort														= #362;
+float()	ReadLong														= #363;
+float()	ReadCoord														= #364;
+float()	ReadAngle														= #365;
+string() ReadString														= #366;	//warning: this returns a temporary!
+// VorteX: vector reading
+vector ReadVector(float() ffunc) = { vector v;v_x = ffunc();v_y = ffunc();v_z = ffunc();return v;}
+// VorteX: compact integer transporting as 1 byte, a value of 0-16 and precision is 0.0625
+float ReadQuant16() = { float f; f = ReadByte(); return f*0.0625; }
+// VorteX: normalized value (0-1) quantized to 0-255
+float ReadQuant() = { float f; f = ReadByte(); return f*0.00390625; }
+// VorteX: compact integer transporting as 1 byte, a value of 0-16 and precision is 0.0625
+float ReadAngle8() = { float f; f = ReadByte(); return f*1.40625; }
+
+float(string s) stof													= #81;
+float(string s) checkextension = #99;
+float wasfreed(entity ent) = #353;
+entity(float num) ftoe = #459;
+//
+#define isentity(e) (e && !wasfreed(e))
+#define isnotentity(e) (!e || wasfreed(e))
+// ent.flags
+enumflags
+{
+	FL_DISABLED,
+	FL_HIDDEN,
+	_
+};
+
+// tracebox
+void(vector v1, vector min, vector max, vector v2, float nomonsters, entity forent) tracebox = #90;
+// registering of cvars
+float(string name, string value) registercvar = #93;
+
+// entity frame interpolation
+.float frame;
+.float frame1time;
+.float frame2;
+.float frame2time;
+.float lerpfrac;
+/*
+.float frame3;
+.float frame3time;
+.float lerpfrac3;
+.float frame4;
+.float frame4time;
+.float lerpfrac4;
+*/
+
+// set static frame for entity
+void setframe(entity e, float f)
+{
+	e.frame = f;
+	e.frame2 = f;
+}
+
+// simple 2-frame interpolation
+void setframei2(entity e, float f1, float f2, float frac)
+{
+	e.frame = f1;
+	e.frame2 = f2;
+	e.lerpfrac = 1 - frac;
+}
+
+// finding
+entity(entity start, .entity fld, entity match) findentity = #98;
+entity(entity start, .float fld, float match) findfloat = #98;
+entity (.string fld, string match) findchain = #402;
+entity (.float fld, float match) findchainflags = #450;
+entity (.entity fld, entity match) findchainentity = #403;
+entity (.float fld, float match) findchainfloat = #403;
+entity (entity start, .float fld, float match)	findflags = #449;
+
+// FRIK_FILE
+float(string filename, float mode)	fopen = #110;
+void(float fhandle) fclose = #111;
+string(float fhandle) fgets = #112;
+void(float fhandle, string s, ...) fputs = #113;
+float(string s) strlen = #114;
+string(string s1, string s2, ...) strcat = #115;
+string(string s, float start, float length) substring = #116;
+vector(string s) stov = #117;
+string(string s) strzone = #118;
+void(string s)	strunzone = #119;
+
+// render stuff
+#define VF_MIN			1	//(vector)
+#define VF_MIN_X			2	//(float)
+#define VF_MIN_Y			3	//(float)
+#define VF_SIZE			4	//(vector) (viewport size)
+#define VF_SIZE_X			5	//(float)
+#define VF_SIZE_Y			6	//(float)
+#define VF_VIEWPORT		7	//(vector, vector)
+#define VF_FOV			8	//(vector)
+#define VF_FOVX			9	//(float)
+#define VF_FOVY			10	//(float)
+#define VF_ORIGIN			11	//(vector)
+#define VF_ORIGIN_X		12	//(float)
+#define VF_ORIGIN_Y		13	//(float)
+#define VF_ORIGIN_Z		14	//(float)
+#define VF_ANGLES			15	//(vector)
+#define VF_ANGLES_X		16	//(float)
+#define VF_ANGLES_Y		17	//(float)
+#define VF_ANGLES_Z		18	//(float)
+
+#define VF_DRAWWORLD			19	//(float)	//actually world model and sky
+#define VF_DRAWENGINESBAR	20	//(float)
+#define VF_DRAWCROSSHAIR		21	//(float)
+#define VF_PERSPECTIVE		200 //(float)
+#define VF_CLEARSCREEN		201 //(float)
+#define VF_VIEWANGLES		33	//(vector)	//sweet thing for RPGs/...
+#define VF_VIEWANGLES_X	34	//(float)
+#define VF_VIEWANGLES_Y	35	//(float)
+#define VF_VIEWANGLES_Z	36	//(float)
+
+void() clearscene = #300;
+void(float mask) addentities = #301; // VorteX: dunno why but addentity does not call .predraw... thats... stupid!
+void(entity e) addentity = #302;
+float(float property, ...) setview = #303;
+float(float property) getview = #303;
+vector(float property) getviewvec = #303;
+void() renderscene = #304;
+
+// light
+void(vector org, float radius, vector rgb) addlight = #305;
+void(vector org, float radius, vector rgb, float style, string cubemapname, float pflags) addlightext = #305;
+float PFLAGS_NOSHADOW = 1; // light does not cast shadows
+float PFLAGS_CORONA = 2; // light has a corona flare
+float PFLAGS_FULLDYNAMIC = 128; // light enable (without this set no light is produced!)
+
+void() calcrefdef = #306;
+
+// CS__
+vector (vector v) cs_unproject = #310;
+vector (vector v) cs_project = #311;
+
+// 2D drawing blend flags
+#define DRAWFLAG_NORMAL		0
+#define DRAWFLAG_ADDITIVE 	1
+#define DRAWFLAG_MODULATE 	2
+#define DRAWFLAG_2XMODULATE 3
+#define DRAWFLAG_SCREEN 	4
+
+float	isloadedpic(string name) = #316;
+string	loadpic(string name) = #317;
+vector	getpicsize(string pic) = #318;
+void	freepic(string name) = #319;
+
+// fonts stuff
+float drawfont;            // set it before drawstring()/drawchar() calls
+float FONT_DEFAULT = 0;    // 'default'
+float FONT_CONSOLE = 1;    // 'console', REALLY should be fixed width (ls!)
+float FONT_SBAR = 2;       // 'sbar', used on hud, must be fixed width
+float FONT_NOTIFY = 3;     // 'notify', used on sprint/bprint
+float FONT_CHAT = 4;       // 'chat'
+float FONT_CENTERPRINT = 5;// 'centerprint'
+float FONT_INFOBAR = 6;    // 'infobar'
+float FONT_MENU = 7;       // 'menu', should be fixed width
+float FONT_USER0 = 8;      // 'user0', userdefined fonts
+float FONT_USER1 = 9;      // 'user1', userdefined fonts
+float FONT_USER2 = 10;     // 'user2', userdefined fonts
+float FONT_USER3 = 11;     // 'user3', userdefined fonts
+float FONT_USER4 = 12;     // 'user4', userdefined fonts
+float FONT_USER5 = 13;     // 'user5', userdefined fonts
+float FONT_USER6 = 14;     // 'user6', userdefined fonts
+float FONT_USER7 = 15;     // 'user7' slot, userdefined fonts
+float findfont(string s) = #356; // find font by fontname and return it's index
+float loadfont(string fontname, string fontmaps, string sizes, float slot, float fix_scale, float fix_hoffset) = #357; 
+float stringwidth(string text, float allowColorCodes, vector size) = #327;
+
+void	drawline(float width, vector pos1, vector pos2, vector rgb, float alpha, float flags) = #315;
+float	drawcharacter(vector position, float character, vector scale, vector rgb, float alpha, float flag) = #320;
+float	drawstring(vector position, string text, vector scale, vector rgb, float alpha, float flag) = #321;
+// fixme: why the hell drawcolorcodedstring has 5 parms?
+float (float minimum, float val, float maximum) bound;
+#define drawcolorcodedstring_c2h	0.06666666666666666666666666666667
+float	drawcolorcodedstring_f(vector position, string text, vector scale, float alpha, float flag) = #326;
+float	drawcolorcodedstring(vector __position, string __text, vector __scale, vector __rgb, float __alpha, float __flag)
+{
+	string cTag;
+	
+	if (__rgb == '1 1 1')
+		return drawcolorcodedstring_f(__position, __text, __scale, __alpha, __flag);
+	// build a startcolor tag
+	cTag = "^x";
+	// x
+	__rgb_x = bound(0, rint(__rgb_x / drawcolorcodedstring_c2h), 15);
+	if (__rgb_x < 9)
+		cTag = strcat(cTag, ftos(__rgb_x));
+	else
+	{
+		if (__rgb_x == 10) cTag = strcat(cTag, "A");
+		else if (__rgb_x == 11) cTag = strcat(cTag, "B");
+		else if (__rgb_x == 12) cTag = strcat(cTag, "C");
+		else if (__rgb_x == 13) cTag = strcat(cTag, "D");
+		else if (__rgb_x == 14) cTag = strcat(cTag, "E");
+		else cTag = strcat(cTag, "F");
+	}
+	// y
+	__rgb_y = bound(0, rint(__rgb_y / drawcolorcodedstring_c2h), 15);
+	if (__rgb_y < 9)
+		cTag = strcat(cTag, ftos(__rgb_y));
+	else
+	{
+		if (__rgb_y == 10) cTag = strcat(cTag, "A");
+		else if (__rgb_y == 11) cTag = strcat(cTag, "B");
+		else if (__rgb_y == 12) cTag = strcat(cTag, "C");
+		else if (__rgb_y == 13) cTag = strcat(cTag, "D");
+		else if (__rgb_y == 14) cTag = strcat(cTag, "E");
+		else cTag = strcat(cTag, "F");
+	}
+	// z
+	__rgb_z = bound(0, rint(__rgb_z / drawcolorcodedstring_c2h), 15);	
+	if (__rgb_z < 9)
+		cTag = strcat(cTag, ftos(__rgb_z));
+	else
+	{
+		if (__rgb_z == 10) cTag = strcat(cTag, "A");
+		else if (__rgb_z == 11) cTag = strcat(cTag, "B");
+		else if (__rgb_z == 12) cTag = strcat(cTag, "C");
+		else if (__rgb_z == 13) cTag = strcat(cTag, "D");
+		else if (__rgb_z == 14) cTag = strcat(cTag, "E");
+		else cTag = strcat(cTag, "F");
+	}
+	// draw
+	return drawcolorcodedstring_f(__position, strcat(cTag, __text), __scale, __alpha, __flag);
+};
+float	drawpic(vector position, string pic, vector size, vector rgb, float alpha, float flag) = #322;
+float	drawsubpic(vector position, vector size, string pic, vector srcPos, vector srcSize, vector rgb, float alpha, float flag) = #328;
+float	drawfill(vector position, vector size, vector rgb, float alpha, float flag) = #323;
+void	drawsetcliparea(float x, float y, float width, float height) = #324;
+void	drawresetcliparea(void) = #325;
+
+// client stats
+float(float statnum) getstatf = #330;
+float(float statnum) getstati = #331;
+string(float statnum) getstats = #332;
+
+// models & tags
+float(entity ent, string tagname) gettagindex = #451;
+vector(entity ent, float tagindex) gettaginfo = #452;
+void(entity e, float i) setmodelindex = #333;
+string(float i)	modelnameforindex = #334;
+
+// printing
+void (string s, ...) cprint = #338;
+void (string s, ...) print = #339;
+
+// particle effects
+float(string efname) particleeffectnum = #335;
+float(string efname) findparticleeffect = { float efnum; efnum = particleeffectnum(efname); if (efnum < 0 && cvar("developer")) print(strcat("^3Warning: particle effect ", efname, " not found!^8\n")); return efnum; }
+void(entity ent, float effectnum, vector start, vector end, ...) trailparticles = #336;
+void (float efnum, vector org, vector vel, float countmultiplier) pointparticles = #337;
+
+
+// player physics
+void(vector dir) vectorvectors = #423;
+void(float framenum) RetrieveMovementFrame = #345;
+void()	DefaultPlayerPhysics = #347;
+
+// name
+// frags
+// ping
+// pl
+// entertime
+// colors
+// topcolor
+// bottomcolor
+// viewentity
+string(float playernum, string key) getplayerkey = #348;
+float() playernum = #354;
+void(string cmdname) registercmd = #352;
+string(string s) strdecolorize = #477;
+void(vector org, vector forward, vector right, vector up) setlistener = #351;
+
+// query game state
+float() isdemo = #349;
+float() isserver = #350;
+float() videoplaying = #355;
+
+// input-related built-ins
+void (float scale) setsensitivityscale = #347;
+string(float keynum) keynumtostring = #340;
+float(string keyname) stringtokeynum = #341;
+string(float key) getkeybind = #342;
+void(float usecursor) setcursormode = #343;
+vector() getmousepos = #344;
+// VorteX: missing another useful builtin, that is slower, but hey - it actually works :)
+#define MAX_KEYS 1024
+string	findkeysforcommand(string tCommand) = 
+{
+	float tPos;
+	string tList;
+	
+	tList = "";
+	for (tPos = 0; tPos < MAX_KEYS; tPos++)
+		if (getkeybind(tPos) == tCommand)
+			tList = strcat(tList, "'", ftos(tPos), "'");
+	return tList;
+}
+
+// get light vector at specified direction
+vector(vector org) getlight = #92;
+
+// DP_FS_SEARCH
+float (string pattern, float caseinsensitive, float quiet) search_begin = #444;
+void (float handle)	search_end = #445;
+float (float handle) search_getsize = #446;
+string (float handle, float num) search_getfilename = #447;
+
+// surface info
+float (entity e, float s) getsurfacenumpoints = #434;
+vector (entity e, float s, float n)	getsurfacepoint = #435;
+vector (entity e, float s) getsurfacenormal = #436;
+string (entity e, float s) getsurfacetexture = #437;
+float (entity e, vector p) getsurfacenearpoint = #438;
+vector (entity e, float s, vector p) getsurfaceclippedpoint = #439;
+
+// math
+float (float a, float b, ...) min = #94;
+float (float a, float b, ...) max = #95;
+float (float minimum, float val, float maximum) bound = #96;
+vector () randomvec = #91;
+float (float val) sin = #60;
+float (float val) cos = #61;
+float (float val) sqrt = #62;
+float (float a, float b) pow = #97;
+
+void (vector org, string modelname, float startframe, float endframe, float framerate) effect = #404;
+
+void (vector org, vector velocity, float howmany) te_blood = #405;
+void (vector mincorner, vector maxcorner, float explosionspeed, float howmany) te_bloodshower = #406;
+void (vector org, float radius, float lifetime, vector color) te_customflash = #417;
+void(vector org, vector color) te_explosionrgb = #407;
+void(vector mincorner, vector maxcorner, vector vel, float howmany, float color, float gravityflag, float randomveljitter) te_particlecube = #408;
+void(vector mincorner, vector maxcorner, vector vel, float howmany, float color) te_particlerain = #409;
+void(vector mincorner, vector maxcorner, vector vel, float howmany, float color) te_particlesnow = #410;
+void(vector org) te_plasmaburn = #433;
+void(vector org) te_gunshotquad = #412;
+void(vector org) te_spikequad = #413;
+void(vector org) te_superspikequad = #414;
+void(vector org) te_explosionquad = #415;
+void(vector org) te_smallflash = #416;
+void(vector org, vector vel, float howmany) te_spark = #411;
+void(vector org) te_gunshot = #418;
+void(vector org) te_spike = #419;
+void(vector org) te_superspike = #420;
+void(vector org) te_explosion = #421;
+void(vector org) te_tarexplosion = #422;
+void(vector org) te_wizspike = #423;
+void(vector org) te_knightspike = #424;
+void(vector org) te_lavasplash = #425;
+void(vector org) te_teleport = #426;
+void(vector org, float color, float colorlength) te_explosion2 = #427;
+void(entity own, vector start, vector end) te_lightning1 = #428;
+void(entity own, vector start, vector end) te_lightning2 = #429;
+void(entity own, vector start, vector end) te_lightning3 = #430;
+void(entity own, vector start, vector end) te_beam = #431;
+
+// DP_QC_COPYENTITY
+void(entity from, entity to) copyentity = #400;
+
+// DP_QC_TOKENIZEBYSEPARATOR, DP_QC_TOKENIZE_CONSOLE, DP_QC_CVAR_DEFSTRING, DP_QC_CVAR_DESCRIPTION
+#define TOKENIZE_MAX_TOKENS	256 // max token items that tokenizer can accept
+float(string s, string separator, ...) tokenizebyseparator = #479;
+float (string s) tokenize = #441;
+string (float argnum) argv = #442;
+string (string s) cvar_string = #448;
+string (string str) cvar_defstring = #482;
+string (string str) cvar_description = #518;
+float(string str) tokenize_console = #514;
+float(float idx) argv_start_index = #515;
+float(float idx) argv_end_index = #516;
+
+// DP_QC_STRINGBUFFERS
+#define BUFFER_SAVED	1
+float() buf_create = #460;
+float(string formatstr, float buf_flags) newbuf = #460;
+void(float bufhandle) buf_del = #461;
+float(float bufhandle) buf_getsize = #462;
+void(float bufhandle_from, float bufhandle_to) buf_copy = #463;
+void(float bufhandle, float sortpower, float backward) buf_sort = #464;
+string(float bufhandle, string glue) buf_implode = #465;
+string(float bufhandle, float string_index) bufstr_get = #466;
+void(float bufhandle, float string_index, string str) bufstr_set = #467;
+float(float bufhandle, string str, float order) bufstr_add = #468;
+void(float bufhandle, float string_index) bufstr_free = #469;
+
+void(string texturename, ...) beginpolygon = #306;
+void(vector org, vector texcoords, vector rgb, float alpha) polygonvertex = #307;
+void() endpolygon = #308;
+
+float(string s, float num) charindex = #356;
+
+// DP_QC_ASINACOSATANATAN2TAN
+float(float s) asin = #471;
+float(float s) acos = #472;
+float(float s) atan = #473;
+float(float s) atan2 = #474;
+float(float s) tan = #475;
+
+// DP_QC_STRINGCOLORFUNCTIONS
+float(string s) strlennocol = #476;
+
+// DP_QC_STRFTIME
+string(float uselocaltime, string format, ...) strftime = #478;
+
+// DP_QC_STRING_CASE_FUNCTIONS
+string(string s) strtolower = #480;
+string(string s) strtoupper = #481;
+
+// DP_SV_POINTSOUND
+void(vector origin, string sample, float volume, float attenuation) pointsound = #483;
+
+// EXT_BITSHIFT
+float(float number, float quantity) bitshift = #218;
+
+// FTE_STRINGS
+float(string str, string sub) strstr = #221;
+float(string str, string sub, float startpos) strstrofs = #221;
+float(string str, float ofs) str2chr = #222;
+string(float c, ...) chr2str = #223;
+string(float ccase, float calpha, float cnum, string s, ...) strconv = #223;
+string(float chars, string s, ...) strpad = #225;
+string(string info, string key, string value, ...) infoadd = #226;
+string(string info, string key) infoget = #227;
+float(string s1, string s2, float len) strncmp = #228;
+float(string s1, string s2) strcasecmp = #229;
+float(string s1, string s2, float len) strncasecmp = #230;
+
+// DP_QC_STRREPLACE
+string(string search, string replace, string subject) strreplace = #484;
+string(string search, string replace, string subject) strireplace = #485;
+
+// DP_GFX_QUAKE3MODELTAGS
+.entity tag_entity;
+.float tag_index; 
+void(entity e, entity tagentity, string tagname) setattachment = #443;
+
+// DP_QC_CRC16
+float(float caseinsensitive, string s, ...) crc16 = #494;

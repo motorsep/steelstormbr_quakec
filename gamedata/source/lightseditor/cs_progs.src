@@ -1,0 +1,21 @@
+// some compiler stuff first
+#define TARG_CLIENTPROGS
+#pragma progs_dat "../../lighteditor_csprogs.dat"
+#ifndef EXTRA_WARNINGS
+ #pragma warning disable Q120	// disable the warning for unrecognised pragmas
+ #pragma warning disable Q302	// disable 'not-referenced' warnings
+#endif
+#pragma flag off fastarrays 	// disable fastarrays
+
+// build
+#include "shared/csprogs.qh"
+#include "shared/csprogs_extensions.qh"
+#include "shared/utils.qc"
+#include "shared/gamecommand.qc"
+#include "shared/netherscript.qc"
+#include "shared/nethergen.qc"
+#include "shared/nethercode.qc"
+#include "shared/nethermenu.qc"
+
+#include "client/editlights.qc"
+#include "client/main.qc"

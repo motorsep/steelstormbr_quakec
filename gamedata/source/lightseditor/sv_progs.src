@@ -1,0 +1,15 @@
+// some compiler stuff first
+#pragma progs_dat "../../lighteditor_progs.dat"
+#ifndef EXTRA_WARNINGS
+ #pragma warning disable Q120	// disable the warning for unrecognised pragmas
+ #pragma warning disable Q302	// disable 'not-referenced' warnings
+#endif
+#pragma flag off fastarrays 	// disable fastarrays
+
+// project files
+#include "server/sv_defs.qc"
+#include "shared/dpextensions.qc"
+#include "server/sv_client.qc"
+#include "server/sv_dummys.qc"
+#include "./../server/sv_lights.qc"
+#include "server/sv_main.qc"
